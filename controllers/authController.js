@@ -3,7 +3,7 @@ let bcrypt = require("bcrypt")
 let User = require("../models/authSchema")
 
 let signup = async (req, res) => {
-    let { name, email, password, confirmPassword, phone, location } = req.body;
+    let { name, email, password, confirmPassword, phone, location } = req.validatedBody;
 
     try {
         // Return UNPROCESSABLE ENTITY when passwords don't match.
@@ -56,7 +56,7 @@ let signup = async (req, res) => {
 }
 
 let login = async (req, res) => {
-    let { email, password } = req.body
+    let { email, password } = req.validatedBody
 
     try {
         // Find user.

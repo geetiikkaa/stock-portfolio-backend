@@ -1,6 +1,7 @@
+
 const finnhub = require("./finnhubService.js");
 const coingecko = require("./coingeckoService.js");
-let yahoo = require("./yahooFinanceService.js")
+const yahoo = require("./yahooFinanceService.js");
 
 async function getQuote(asset) {
     switch (asset.asset_class) {
@@ -18,21 +19,33 @@ async function getQuote(asset) {
 
 async function getHistoricalData(asset, range, interval) {
     switch (asset.asset_class) {
-
         case "Crypto":
-            return coingecko.getHistoricalData(asset.external_id);
+            return coingecko.getHistoricalData(
+                asset.external_id,
+                range
+            );
 
         case "Equity":
-        
         case "ETF":
-            return yahoo.getHistoricalData(asset.yahoo_symbol || asset.ticker, range, interval)
+            return yahoo.getHistoricalData(
+                asset.yahoo_symbol || asset.ticker,
+                range,
+                interval
+            );
 
         case "Index":
-            return yahoo.getHistoricalData(asset.yahoo_symbol, "1mo", "1d");
+            return yahoo.getHistoricalData(
+                asset.yahoo_symbol,
+                "1mo",
+                "1d"
+            );
 
         default:
             throw new Error("Unsupported asset class");
     }
 }
 
-module.exports = { getQuote, getHistoricalData };
+module.exports = {
+    getQuote,
+    getHistoricalData,
+};

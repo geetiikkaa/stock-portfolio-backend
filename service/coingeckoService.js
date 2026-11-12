@@ -1,4 +1,22 @@
 const COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3";
+const cache = new Map();
+
+const getCachedData = async (key, ttl, fetcher) => {
+    const cached = cache.get(key);
+
+    if (cached && cached.expiry > Date.now()) {
+        return cached.data;
+    }
+
+    const data = await fetcher();
+
+    cache.set(key, {
+        data,
+        expiry: Date.now() + ttl,
+    });
+
+    return data;
+};
 
 const searchCoins = async (query) => {
     const response = await fetch(
@@ -21,62 +39,108 @@ const searchCoins = async (query) => {
 };
 
 const getQuote = async (coinId) => {
-    const response = await fetch(
-        `${COINGECKO_BASE_URL}/simple/price?ids=${encodeURIComponent(
-            coinId
-        )}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true`
-    );
+    return getCachedData(`quote:${coinId}`, 60000, async () => {
+        const response = await fetch(
+            `${COINGECKO_BASE_URL}/simple/price?ids=${encodeURIComponent(
+                coinId
+            )}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_last_updated_at=true`
+        );
 
-    if (!response.ok) {
-        throw new Error("Failed to fetch crypto quote.");
-    }
+        if (!response.ok) {
+            const errorBody = await response.text();
 
-    const data = await response.json();
+            console.error("CoinGecko quote error:", {
+                status: response.status,
+                body: errorBody,
+                coinId,
+            });
 
-    if (!data[coinId]) {
-        throw new Error("Cryptocurrency not found.");
-    }
+            throw new Error("Failed to fetch crypto quote.");
+        }
 
-    const coin = data[coinId];
-    const currentPrice = coin.usd;
-    const percentChange = coin.usd_24h_change;
-    // Approximate price 24 hours ago
-    const referencePrice =
-        percentChange != null
-            ? currentPrice / (1 + percentChange / 100)
-            : null;
+        const data = await response.json();
 
-    return {
-        currentPrice,
-        // For crypto this means approximately 24h ago,
-        // not a traditional market "previous close".
-        referencePrice,
-        change:
-            referencePrice != null
-                ? currentPrice - referencePrice
-                : null,
-        percentChange,
-        high: null,
-        low: null,
-        open: null,
-        volume: coin.usd_24h_vol,
-        timestamp: coin.last_updated_at,
+        if (!data[coinId]) {
+            throw new Error("Cryptocurrency not found.");
+        }
+
+        const coin = data[coinId];
+        const currentPrice = coin.usd;
+        const percentChange = coin.usd_24h_change;
+        const referencePrice =
+            percentChange != null
+                ? currentPrice / (1 + percentChange / 100)
+                : null;
+
+        return {
+            currentPrice,
+            referencePrice,
+            change:
+                referencePrice != null
+                    ? currentPrice - referencePrice
+                    : null,
+            percentChange,
+            high: null,
+            low: null,
+            open: null,
+            volume: coin.usd_24h_vol,
+            timestamp: coin.last_updated_at,
+        };
+    });
+};
+
+
+
+const getHistoricalData = async (coinId, range = "1mo") => {
+    const rangeToDays = {
+        "1mo": 30,
+        "3mo": 90,
+        "6mo": 180,
+        "1y": 365,
+        "5y": 1825,
     };
-};
 
-const getHistoricalData = async (coinId, days = 30) => {
-    const response = await fetch(
-        `${COINGECKO_BASE_URL}/coins/${encodeURIComponent(
-            coinId
-        )}/market_chart?vs_currency=usd&days=${days}`
+    const days = rangeToDays[range] || 30;
+
+    return getCachedData(
+        `history:${coinId}:${days}`,
+        15 * 60 * 1000,
+        async () => {
+            const response = await fetch(
+                `${COINGECKO_BASE_URL}/coins/${encodeURIComponent(
+                    coinId
+                )}/market_chart?vs_currency=usd&days=${days}`
+            );
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+
+                console.error("CoinGecko history error:", {
+                    status: response.status,
+                    body: errorBody,
+                    coinId,
+                    days,
+                });
+
+                const error = new Error(
+                    "Failed to fetch historical crypto data."
+                );
+
+                error.statusCode = response.status;
+                throw error;
+            }
+
+            const data = await response.json();
+
+            return data.prices.map(([timestamp, price]) => ({
+                timestamp,
+                value: price,
+            }));
+        }
     );
-
-    if (!response.ok) {
-        throw new Error("Failed to fetch historical crypto data.");
-    }
-
-    return await response.json();
 };
+
+
 
 const getCoinProfile = async (coinId) => {
     const response = await fetch(
@@ -111,4 +175,3 @@ module.exports = {
     getHistoricalData,
     getCoinProfile,
 };
-

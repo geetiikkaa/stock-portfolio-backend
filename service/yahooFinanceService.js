@@ -74,12 +74,20 @@ const getHistoricalData = async (
         interval,
     });
 
-    return result.quotes
+    const history = result.quotes
         .filter(item => item.close != null)
         .map(item => ({
-            timestamp: item.date,
-            value: item.close,
+            timestamp: new Date(item.date).getTime(),
+            value: Number(item.close),
         }));
+
+    console.log(`Historical data for ${symbol}:`, {
+        points: history.length,
+        first: history[0],
+        last: history[history.length - 1],
+    });
+
+    return history;
 };
 
 

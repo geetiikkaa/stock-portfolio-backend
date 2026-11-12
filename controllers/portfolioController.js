@@ -4,16 +4,17 @@ const getPortfolio = async (req, res) => {
     try {
         const portfolio = await buildPortfolio(req.user.id);
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             data: portfolio,
         });
-    } catch (err) {
-        console.log(err)
 
-        res.status(500).json({
+    } catch (err) {
+        console.error("Failed to fetch portfolio:", err);
+
+        return res.status(500).json({
             success: false,
-            message: err.message,
+            message: "Failed to fetch portfolio.",
         });
     }
 };

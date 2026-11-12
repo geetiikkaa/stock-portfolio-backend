@@ -1,11 +1,12 @@
 let express = require("express")
-let { getMarketQuote, getMarketHistory, getMarketProfile, getMarketIndices, getMarketMovers, getMarketNews } = require("../controllers/marketController.js")
+let { getMarketQuote, getMarketHistory, getMarketProfile, getMarketIndices, getMarketIndexHistory, getMarketMovers, getMarketNews } = require("../controllers/marketController.js")
 let marketRouter = express.Router()
 
 marketRouter.get("/quote/:symbol", getMarketQuote)
 marketRouter.get("/profile/:symbol", getMarketProfile)
 marketRouter.get("/history/:symbol", getMarketHistory)
 marketRouter.get("/indices", getMarketIndices)
+marketRouter.get("/indices/:symbol/history", getMarketIndexHistory);
 marketRouter.get("/movers", getMarketMovers)
 marketRouter.get("/news", getMarketNews)
 

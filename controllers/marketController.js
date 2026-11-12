@@ -2,7 +2,6 @@ const Asset = require("../models/assetSchema");
 const marketData = require("../service");
 const finnhub = require("../service/finnhubService");
 let yahoo = require("../service/yahooFinanceService")
-let symbols = require("../constants/marketSymbols")
 
 const getMarketQuote = async (req, res) => {
     try {
@@ -15,11 +14,14 @@ const getMarketQuote = async (req, res) => {
             });
         }
 
+        const normalizedSymbol = symbol.trim();
+
         const asset = await Asset.findOne({
-            $or: [
-                { ticker: symbol.trim().toUpperCase() },
-                { external_id: symbol.trim().toLowerCase() }
-            ]
+            external_id: normalizedSymbol.toLowerCase(),
+            asset_class: "Crypto"
+        }) || await Asset.findOne({
+            ticker: normalizedSymbol.toUpperCase(),
+            asset_class: { $in: ["Equity", "ETF"] }
         });
 
         if (!asset) {
@@ -57,11 +59,14 @@ const getMarketHistory = async (req, res) => {
             });
         }
 
+        const normalizedSymbol = symbol.trim();
+
         const asset = await Asset.findOne({
-            $or: [
-                { ticker: symbol.trim().toUpperCase() },
-                { external_id: symbol.trim().toLowerCase() },
-            ],
+            external_id: normalizedSymbol.toLowerCase(),
+            asset_class: "Crypto"
+        }) || await Asset.findOne({
+            ticker: normalizedSymbol.toUpperCase(),
+            asset_class: { $in: ["Equity", "ETF"] }
         });
 
         if (!asset) {
@@ -142,6 +147,39 @@ const getMarketIndices = async (req, res) => {
     }
 };
 
+const getMarketIndexHistory = async (req, res) => {
+    try {
+        const { symbol } = req.params;
+        const { range = "1d", interval = "5m" } = req.query;
+
+        if (!symbol) {
+            return res.status(400).json({
+                success: false,
+                message: "Index symbol is required.",
+            });
+        }
+
+        const history = await yahoo.getHistoricalData(
+            symbol,
+            range,
+            interval
+        );
+
+        return res.status(200).json({
+            success: true,
+            data: history,
+        });
+
+    } catch (error) {
+        console.error("Error fetching index history:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
 const getMarketMovers = async (req, res) => {
     try {
         const assets = await Asset.find({
@@ -214,4 +252,4 @@ const getMarketNews = async (req, res) => {
     }
 };
 
-module.exports = { getMarketQuote, getMarketHistory, getMarketProfile, getMarketIndices, getMarketMovers, getMarketNews };
+module.exports = { getMarketQuote, getMarketHistory, getMarketProfile, getMarketIndices, getMarketIndexHistory, getMarketMovers, getMarketNews };
